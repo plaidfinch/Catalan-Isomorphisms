@@ -89,17 +89,17 @@ instance MaybeD (S x) where
 instance MaybeD Z where
    maybeD = const Nothing
 
+class EnsureDyck x where
+   ensureDyck :: NNPath x -> Maybe Dyck
+instance EnsureDyck Z where
+   ensureDyck = Just
+instance EnsureDyck (S n) where
+   ensureDyck = const Nothing
+
 data Dir = Up | Down
 
 pathToDyck :: [Dir] -> Maybe Dyck
 pathToDyck = undefined
-
---class EnsureDyck x where
---   ensureDyck :: NNPath x -> Maybe Dyck
---instance EnsureDyck Z where
---   ensureDyck = Just
---instance EnsureDyck (S n) where
---   ensureDyck = const Nothing
 
 class CutZ x where
    cut :: NNPath x -> (NNPath x,Dyck)
