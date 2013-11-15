@@ -1,4 +1,4 @@
-{-# LANGUAGE GADTs , TypeFamilies , FlexibleInstances , TypeOperators #-}
+{-# LANGUAGE GADTs , TypeFamilies , FlexibleInstances , TypeOperators , MultiParamTypeClasses #-}
 
 module Catalan where
 
@@ -47,6 +47,26 @@ instance Monoid Dyck where
    mempty  = E
    mappend = (|+|)
 
+-- | Class to allow slicing paths at the zero crossing; used in split below
+class CutZ x where
+   cut :: NNPath x -> (NNPath x,Dyck)
+instance CutZ Z where
+   cut p = (E,p)
+instance CutZ n => CutZ (S n) where
+   cut (U x) = let (f,r) = cut x in (U f,r)
+   cut (D x) = let (f,r) = cut x in (D f,r)
+
+-- | A Dyck path may be separated into a list of Dyck paths
+-- | The following identities hold:
+-- | foldr1 (|+|) . split === id
+-- | split . foldr1 (|+|) === id
+split :: Dyck -> [Dyck]
+split E = []
+split n = let (f,r) = splitFirst n in f : split r
+   where
+      splitFirst E     = (E,E)
+      splitFirst (D n) = let (f,r) = cut n in (D f,r)
+
 -- Some utilities...
 
 tack :: x -> [x] -> [x]
@@ -70,10 +90,11 @@ instance Catalan Tree where
    toDyck (N [])     = E
    toDyck (N leaves) =
       foldMap (bump . toDyck) (reverse leaves)
+
    fromDyck = fromNNPath
       where
          fromNNPath :: NNPath x -> Tree
-         fromNNPath E = N []
+         fromNNPath E     = N []
          fromNNPath (U n) = zipU (fromNNPath n)
          fromNNPath (D n) = zipD (fromNNPath n)
 
@@ -89,35 +110,21 @@ instance MaybeD (S x) where
 instance MaybeD Z where
    maybeD = const Nothing
 
-class EnsureDyck x where
-   ensureDyck :: NNPath x -> Maybe Dyck
-instance EnsureDyck Z where
-   ensureDyck = Just
-instance EnsureDyck (S n) where
-   ensureDyck = const Nothing
+-- | By calling ensureHeight on an NNPath, it is possible to assert that a path has a particular height
+class EnsureHeight (x :: Nat) (h :: Nat) where
+   ensureHeight :: NNPath x -> Maybe (NNPath h)
+instance EnsureHeight Z Z where
+   ensureHeight = Just
+instance EnsureHeight n n => EnsureHeight (S n) (S n) where
+   ensureHeight = Just
+instance EnsureHeight n n => EnsureHeight n (S n) where
+   ensureHeight = const Nothing
+instance EnsureHeight n n => EnsureHeight (S n) n where
+   ensureHeight = const Nothing
 
 data Dir = Up | Down
 
-pathToDyck :: [Dir] -> Maybe Dyck
-pathToDyck = undefined
+parsePath :: [Dir] -> Maybe Dyck
+parsePath _ = Just E
 
-class CutZ x where
-   cut :: NNPath x -> (NNPath x,Dyck)
-instance CutZ Z where
-   cut p = (E,p)
-instance CutZ n => CutZ (S n) where
-   cut (U x) = let (f,r) = cut x in (U f,r)
-   cut (D x) = let (f,r) = cut x in (D f,r)
-
--- | A Dyck path may be separated into a list of Dyck paths
--- | The following identities hold:
--- | foldr1 (|+|) . split === id
--- | split . foldr1 (|+|) === id
-split :: Dyck -> [Dyck]
-split E = []
-split n = let (f,r) = splitFirst n in f : split r
-   where
-      splitFirst E     = (E,E)
-      splitFirst (D n) = let (f,r) = cut n in (D f,r)
-
-
+-- TODO: parse [Dir] into Nothing or (Just Dyck) -- use the tree isomorphism via zippers and then convert back to a Dyck path via toDyck.
