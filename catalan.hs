@@ -65,6 +65,7 @@ class Catalan a where
 
 -- | Trees with any number of child nodes can be counted by Catalan numbers
 data Tree = N [Tree] deriving ( Eq, Show )
+
 instance Catalan Tree where
    toDyck (N [])     = E
    toDyck (N leaves) =
