@@ -2,6 +2,7 @@
 
 module Catalan where
 
+import Prelude hiding ( all , foldl )
 import Data.Semigroup
 import Data.Foldable
 
@@ -98,11 +99,45 @@ instance Catalan Tree where
          fromNNPath (U n) = zipU (fromNNPath n)
          fromNNPath (D n) = zipD (fromNNPath n)
 
-         zipU = N . (:[])
+         zipU = N . (: [])
 
          zipD (N []) = undefined -- can't zip down from a leaf; b/c we're using Dyck paths, this never occurs
-         zipD (N ((N gs) : cs)) = N (tack (N cs) gs)
+         zipD (N (N gs : cs)) = N (tack (N cs) gs)
 
+-- | A direction is either up (Up) or down (Dn)
+data Dir = Up | Dn
+
+-- | Adds either 1 or -1 based on the direction given
+plusDir :: Enum a => a -> Dir -> a
+plusDir n Up = succ n
+plusDir n Dn = pred n
+
+-- | Determines if a list of directions constitutes a Dyck path
+isDyckList :: [Dir] -> Bool
+isDyckList dirs =
+   (0     ==     foldl plusDir 0 rdirs) &&
+   (all (>= 0) $ scanl plusDir 0 rdirs)
+   where rdirs = reverse dirs
+
+-- | We can take a purely value-level, no-nonsense list of ordinary directions and (maybe) parse it into a Dyck path -- if and only if it represents a Dyck path. This uses the same tree-zipper technique used in implementing the fromDyck method of trees
+parseDyck :: [Dir] -> Maybe Dyck
+parseDyck dirs =
+   if isDyckList dirs
+   then case treeFromDir dirs of
+      Nothing -> Nothing
+      Just tr -> Just (toDyck tr)
+   else Nothing
+   where
+      treeFromDir []          = Just (N [])
+      treeFromDir (Up : rest) = zipU =<< (treeFromDir rest)
+      treeFromDir (Dn : rest) = zipD =<< (treeFromDir rest)
+
+      zipU = Just . N . (: [])
+
+      zipD (N [])          = Nothing
+      zipD (N (N gs : cs)) = Just $ N (tack (N cs) gs)
+
+-- | We can safely try to prepend a D to an NNPath, returning nothing or a new NNPath
 class MaybeD x where
    maybeD :: NNPath x -> Maybe (NNPath (Pred x))
 instance MaybeD (S x) where
@@ -121,10 +156,3 @@ instance EnsureHeight n n => EnsureHeight n (S n) where
    ensureHeight = const Nothing
 instance EnsureHeight n n => EnsureHeight (S n) n where
    ensureHeight = const Nothing
-
-data Dir = Up | Down
-
-parsePath :: [Dir] -> Maybe Dyck
-parsePath _ = Just E
-
--- TODO: parse [Dir] into Nothing or (Just Dyck) -- use the tree isomorphism via zippers and then convert back to a Dyck path via toDyck.
