@@ -1,22 +1,16 @@
-{-# LANGUAGE
-  GADTs
-, TypeFamilies
-, DataKinds
-, PolyKinds
-, FlexibleInstances
-, TypeOperators #-}
+{-# LANGUAGE GADTs , TypeFamilies , FlexibleInstances , TypeOperators #-}
 
 module Catalan where
 
-import Data.Foldable
 import Data.Semigroup
+import Data.Foldable
 
--- | Type-level natural numbers...
+-- | Natural numbers...
 data Nat = Z | S Nat
 
 type family (m :: Nat) :+: (n :: Nat) :: Nat
-type instance  Z    :+: n = n
-type instance (S m) :+: n = S (m :+: n)
+type instance Z   :+: n = n
+type instance S m :+: n = S (m :+: n)
 
 type family Pred (m :: Nat) :: Nat
 type instance Pred (S m) = m
@@ -53,50 +47,76 @@ instance Monoid Dyck where
    mempty  = E
    mappend = (|+|)
 
--- Non-empty lists...
+-- Some utilities...
 
-infixr 5 :::
+tack :: x -> [x] -> [x]
+tack x [] = [x]
+tack x (y : rest) = y : tack x rest
 
-data NonEmptyList a = Final a
-                    | a ::: (NonEmptyList a)
-                    deriving ( Eq )
+bump :: Dyck -> Dyck
+bump = D . (|+| U E)
 
-instance Show a => Show (NonEmptyList a) where
-   show (Final x)    = "Final " ++ show x
-   show (x ::: rest) = show x ++ " ::: " ++ show rest
-
-instance Foldable NonEmptyList where
-   foldMap f (Final x)    = f x
-   foldMap f (x ::: rest) = f x `mappend` foldMap f rest
-
-instance Semigroup (NonEmptyList a) where
-   Final a   <> list = a ::: list
-   (a ::: b) <> list = a ::: (b <> list)
-
--- Trees with any number of child nodes...
-
-data Tree = Leaf
-          | Node (NonEmptyList Tree)
-          deriving ( Eq )
-
-instance Show Tree where
-   show Leaf        = "Leaf"
-   show (Node list) = "Node (" ++ show list ++ ")"
-
+-- | Typeclass for things countable by Catalan numbers
+-- | toDyck . fromDyck === id
+-- | fromDyck . toDyck === id
 class Catalan a where
    toDyck   :: a -> Dyck
    fromDyck :: Dyck -> a
 
+-- | Trees with any number of child nodes can be counted by Catalan numbers
+data Tree = N [Tree] deriving ( Eq, Show )
 instance Catalan Tree where
-   toDyck  Leaf         = E
-   toDyck (Node leaves) =
-      foldMap (D . (|+| U E) . toDyck) leaves
+   toDyck (N [])     = E
+   toDyck (N leaves) =
+      foldMap (bump . toDyck) (reverse leaves)
+   fromDyck = fromNNPath
+      where
+         fromNNPath :: NNPath x -> Tree
+         fromNNPath E = N []
+         fromNNPath (U n) = zipU (fromNNPath n)
+         fromNNPath (D n) = zipD (fromNNPath n)
+
+         zipU = N . (:[])
+
+         zipD (N []) = undefined -- can't zip down from a leaf; b/c we're using Dyck paths, this never occurs
+         zipD (N ((N gs) : cs)) = N (tack (N cs) gs)
 
 class MaybeD x where
    maybeD :: NNPath x -> Maybe (NNPath (Pred x))
-
 instance MaybeD (S x) where
    maybeD = Just . D
-
 instance MaybeD Z where
    maybeD = const Nothing
+
+data Dir = Up | Down
+
+pathToDyck :: [Dir] -> Maybe Dyck
+pathToDyck = undefined
+
+--class EnsureDyck x where
+--   ensureDyck :: NNPath x -> Maybe Dyck
+--instance EnsureDyck Z where
+--   ensureDyck = Just
+--instance EnsureDyck (S n) where
+--   ensureDyck = const Nothing
+
+class CutZ x where
+   cut :: NNPath x -> (NNPath x,Dyck)
+instance CutZ Z where
+   cut p = (E,p)
+instance CutZ n => CutZ (S n) where
+   cut (U x) = let (f,r) = cut x in (U f,r)
+   cut (D x) = let (f,r) = cut x in (D f,r)
+
+-- | A Dyck path may be separated into a list of Dyck paths
+-- | The following identities hold:
+-- | foldr1 (|+|) . split === id
+-- | split . foldr1 (|+|) === id
+split :: Dyck -> [Dyck]
+split E = []
+split n = let (f,r) = splitFirst n in f : split r
+   where
+      splitFirst E     = (E,E)
+      splitFirst (D n) = let (f,r) = cut n in (D f,r)
+
+
