@@ -71,7 +71,7 @@ instance CutZ n => CutZ (S n) where
 -- | split . foldr1 (|+|) === id
 split :: Dyck -> [Dyck]
 split End = []
-split n = let (f,r) = splitFirst n in f : split r
+split n = reverse $ let (f,r) = splitFirst n in f : split r
    where
       splitFirst End     = (End,End)
       splitFirst (D n) = let (f,r) = cut n in (D f,r)
