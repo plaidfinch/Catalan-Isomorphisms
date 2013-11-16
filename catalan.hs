@@ -128,6 +128,9 @@ isDyckList dirs =
    where rdirs = reverse dirs
 
 -- | We can take a purely value-level, no-nonsense list of ordinary directions and (maybe) parse it into a Dyck path -- if and only if it represents a Dyck path. This uses the same tree-zipper technique used in implementing the fromDyck method of trees
+-- | Note that (for Dyck paths ONLY -- other inputs yield bottom):
+-- | unparseNNPath . fromJust . parseDyck === id
+-- | fromJust . parseDyck . unparseNNPath === id
 parseDyck :: [Dir] -> Maybe Dyck
 parseDyck dirs =
    if isDyckList dirs
