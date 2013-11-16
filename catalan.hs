@@ -44,10 +44,11 @@ instance Show (NNPath x) where
 type Dyck = NNPath Z
 
 -- | Non-negative paths may be concatenated, resulting in another non-negative path
-(|+|) :: NNPath m -> NNPath n -> NNPath (Plus m n)
-End   |+| y = y
-(U x) |+| y = U (x |+| y)
-(D x) |+| y = D (x |+| y)
+infixr 5 |+|
+(|+|) :: NNPath n -> NNPath m -> NNPath (Plus m n)
+y |+| End   = y
+y |+| (U x) = U (y |+| x)
+y |+| (D x) = D (y |+| x)
 
 -- | This operation forms a monoid on Dyck paths only
 instance Monoid Dyck where
