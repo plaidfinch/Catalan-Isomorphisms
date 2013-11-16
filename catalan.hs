@@ -57,7 +57,8 @@ instance CutZ n => CutZ (S n) where
    cut (U x) = let (f,r) = cut x in (U f,r)
    cut (D x) = let (f,r) = cut x in (D f,r)
 
--- | A Dyck path may be separated into a list of Dyck paths
+-- | A Dyck path may be separated into a list of Dyck paths.
+-- | This operation guarantees that each Dyck path in the resulting list will be a *prime* Dyck path (i.e. no zero-crossings other than start and end), but we don't yet have a way of meaningfully encoding this in the type system so that we can take advantage of it to type-safely implement an "unbump" operation for prime Dyck paths.
 -- | The following identities hold:
 -- | foldr1 (|+|) . split === id
 -- | split . foldr1 (|+|) === id
