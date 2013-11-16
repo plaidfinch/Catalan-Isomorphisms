@@ -68,6 +68,10 @@ split n = let (f,r) = splitFirst n in f : split r
       splitFirst E     = (E,E)
       splitFirst (D n) = let (f,r) = cut n in (D f,r)
 
+-- Alternatively, we can define split via the tree isomorphism:
+-- split :: Dyck -> [Dyck]
+-- split = map (bump . toDyck) . reverse . children . fromDyck
+
 -- Some utilities...
 
 tack :: x -> [x] -> [x]
@@ -85,27 +89,30 @@ class Catalan a where
    fromDyck :: Dyck -> a
 
 -- | Trees with any number of child nodes can be counted by Catalan numbers
-data Tree = N [Tree] deriving ( Eq, Show )
+data Tree = Node [Tree] deriving ( Eq, Show )
+
+children :: Tree -> [Tree]
+children (Node cs) = cs
 
 instance Catalan Tree where
-   toDyck (N [])     = E
-   toDyck (N leaves) =
+   toDyck (Node [])     = E
+   toDyck (Node leaves) =
       foldMap (bump . toDyck) (reverse leaves)
 
    fromDyck = fromNNPath
       where
          fromNNPath :: NNPath x -> Tree
-         fromNNPath E     = N []
+         fromNNPath E     = Node []
          fromNNPath (U n) = zipU (fromNNPath n)
          fromNNPath (D n) = zipD (fromNNPath n)
 
-         zipU = N . (: [])
+         zipU = Node . (: [])
 
-         zipD (N []) = undefined -- can't zip down from a leaf; b/c we're using Dyck paths, this never occurs
-         zipD (N (N gs : cs)) = N (tack (N cs) gs)
+         zipD (Node []) = undefined -- can't zip down from a leaf; b/c we're using Dyck paths, this never occurs
+         zipD (Node (Node gs : cs)) = Node (tack (Node cs) gs)
 
 -- | A direction is either up (Up) or down (Dn)
-data Dir = Up | Dn
+data Dir = Up | Dn deriving ( Eq, Ord, Show )
 
 -- | Adds either 1 or -1 based on the direction given
 plusDir :: Enum a => a -> Dir -> a
@@ -124,18 +131,24 @@ parseDyck :: [Dir] -> Maybe Dyck
 parseDyck dirs =
    if isDyckList dirs
    then case treeFromDir dirs of
-      Nothing -> Nothing
-      Just tr -> Just (toDyck tr)
+      Nothing   -> Nothing
+      Just tree -> Just (toDyck tree)
    else Nothing
    where
-      treeFromDir []          = Just (N [])
+      treeFromDir []          = Just (Node [])
       treeFromDir (Up : rest) = zipU =<< (treeFromDir rest)
       treeFromDir (Dn : rest) = zipD =<< (treeFromDir rest)
 
-      zipU = Just . N . (: [])
+      zipU = Just . Node . (: [])
 
-      zipD (N [])          = Nothing
-      zipD (N (N gs : cs)) = Just $ N (tack (N cs) gs)
+      zipD (Node [])             = Nothing
+      zipD (Node (Node gs : cs)) = Just $ Node (tack (Node cs) gs)
+
+-- | Takes a non-negative path and "unparses" it, returning just a sequence of directions
+unparseNNPath :: NNPath x -> [Dir]
+unparseNNPath E = []
+unparseNNPath (U n) = Up : unparseNNPath n
+unparseNNPath (D n) = Dn : unparseNNPath n
 
 -- | We can safely try to prepend a D to an NNPath, returning nothing or a new NNPath
 class MaybeD x where
