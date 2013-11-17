@@ -114,7 +114,7 @@ instance Catalan Tree where
          fromNNPath (U n) = zipU (fromNNPath n)
          fromNNPath (D n) = zipD (fromNNPath n)
 
-         zipU tree                  = [tree]
+         zipU tree                  = Node [tree]
          zipD (Node [])             = undefined -- can't zip down from a leaf; this never occurs w/ Dyck paths
          zipD (Node (Node gs : cs)) = Node (tack (Node cs) gs)
 
