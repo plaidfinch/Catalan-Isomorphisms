@@ -156,23 +156,3 @@ unparseNNPath = reverse . unparseNNPath'
       unparseNNPath' End = []
       unparseNNPath' (U n) = Up : unparseNNPath' n
       unparseNNPath' (D n) = Dn : unparseNNPath' n
-
--- | We can safely try to prepend a D to an NNPath, returning nothing or a new NNPath
---class MaybeD x where
---   maybeD :: NNPath x -> Maybe (NNPath (Pred x))
---instance MaybeD (S x) where
---   maybeD = Just . D
---instance MaybeD Z where
---   maybeD = const Nothing
-
--- By calling ensureHeight on an NNPath, it is possible to assert that a path has a particular height
---class EnsureHeight (x :: Nat) (h :: Nat) where
---   ensureHeight :: NNPath x -> Maybe (NNPath h)
---instance EnsureHeight Z Z where
---   ensureHeight = Just
---instance EnsureHeight n n => EnsureHeight (S n) (S n) where
---   ensureHeight = Just
---instance EnsureHeight n n => EnsureHeight n (S n) where
---   ensureHeight = const Nothing
---instance EnsureHeight n n => EnsureHeight (S n) n where
---   ensureHeight = const Nothing
