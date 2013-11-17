@@ -1,24 +1,24 @@
-{-# LANGUAGE GADTs , TypeFamilies , DataKinds , FlexibleInstances , TypeOperators , MultiParamTypeClasses #-}
+{-# LANGUAGE GADTs , DataKinds , TypeFamilies , FlexibleInstances #-}
 
 module Catalan where
 
-import Prelude hiding ( all , foldl )
+import Prelude hiding ( (-) )
 import Data.Semigroup
-import Data.Foldable
+import Data.Foldable ( foldMap )
 
 -- | Natural numbers...
 data Nat = Z | S Nat
 
-type family (m :: Nat) :+: (n :: Nat) :: Nat
-type instance Z   :+: n = n
-type instance S m :+: n = S (m :+: n)
+type family Plus (m :: Nat) (n :: Nat) :: Nat
+type instance Plus Z n = n
+type instance Plus (S m) n = S (Plus m n)
 
 type family Pred (m :: Nat) :: Nat
 type instance Pred (S m) = m
 
 -- | NNPath (non-negative path) are paths consisting of up (U) and down (D) segments, which start at zero and never go below zero
 data NNPath (height :: Nat) where
-   E :: NNPath Z
+   End :: NNPath Z
    U :: NNPath m -> NNPath (S m)
    D :: NNPath (S m) -> NNPath m
 
@@ -27,32 +27,39 @@ instance Eq (NNPath x) where
    D m == D n = m == n
    U m == D n = False
    D m == U n = False
-   E == E     = True
+   End == End = True
 
+-- | This operator lets you construct paths in a left-to-right manner, e.g. End-U-D-U-U-D-D
+(-) :: NNPath x -> (NNPath x -> NNPath y) -> NNPath y
+(-) = flip ($)
+
+-- | The Show instance for NNPaths uses the (-) operator defined above, as it's more intuitive
 instance Show (NNPath x) where
-   show E = "E"
-   show (U n) = "(U " ++ show n ++ ")"
-   show (D n) = "(D " ++ show n ++ ")"
+   --show End   = "End"
+   --show (U n) = "(U " ++ show n ++ ")"
+   --show (D n) = "(D " ++ show n ++ ")"
+   show = ("End" ++) . concatMap (\x -> case x of Up -> "-U"; Dn -> "-D") . reverse . unparseNNPath
 
 -- | A Dyck path is a non-negative path ending at zero
 type Dyck = NNPath Z
 
 -- | Non-negative paths may be concatenated, resulting in another non-negative path
-(|+|) :: NNPath m -> NNPath n -> NNPath (m :+: n)
-E     |+| y = y
-(U x) |+| y = U (x |+| y)
-(D x) |+| y = D (x |+| y)
+infixr 5 |+|
+(|+|) :: NNPath n -> NNPath m -> NNPath (Plus m n)
+y |+| End   = y
+y |+| (U x) = U (y |+| x)
+y |+| (D x) = D (y |+| x)
 
 -- | This operation forms a monoid on Dyck paths only
 instance Monoid Dyck where
-   mempty  = E
+   mempty  = End
    mappend = (|+|)
 
 -- | Class to allow slicing paths at the zero crossing; used in split below
-class CutZ x where
+class CutZ (x :: Nat) where
    cut :: NNPath x -> (NNPath x,Dyck)
 instance CutZ Z where
-   cut p = (E,p)
+   cut p = (End,p)
 instance CutZ n => CutZ (S n) where
    cut (U x) = let (f,r) = cut x in (U f,r)
    cut (D x) = let (f,r) = cut x in (D f,r)
@@ -63,10 +70,10 @@ instance CutZ n => CutZ (S n) where
 -- | foldr1 (|+|) . split === id
 -- | split . foldr1 (|+|) === id
 split :: Dyck -> [Dyck]
-split E = []
-split n = let (f,r) = splitFirst n in f : split r
+split End = []
+split n = reverse $ let (f,r) = splitFirst n in f : split r
    where
-      splitFirst E     = (E,E)
+      splitFirst End     = (End,End)
       splitFirst (D n) = let (f,r) = cut n in (D f,r)
 
 -- Alternatively, we can define split via the tree isomorphism:
@@ -80,7 +87,7 @@ tack x [] = [x]
 tack x (y : rest) = y : tack x rest
 
 bump :: Dyck -> Dyck
-bump = D . (|+| U E)
+bump = D . (|+| U End)
 
 -- | Typeclass for things countable by Catalan numbers
 -- | toDyck . fromDyck === id
@@ -96,14 +103,14 @@ children :: Tree -> [Tree]
 children (Node cs) = cs
 
 instance Catalan Tree where
-   toDyck (Node [])     = E
+   toDyck (Node [])     = End
    toDyck (Node leaves) =
       foldMap (bump . toDyck) (reverse leaves)
 
    fromDyck = fromNNPath
       where
          fromNNPath :: NNPath x -> Tree
-         fromNNPath E     = Node []
+         fromNNPath End     = Node []
          fromNNPath (U n) = zipU (fromNNPath n)
          fromNNPath (D n) = zipD (fromNNPath n)
 
@@ -150,7 +157,7 @@ parseDyck dirs =
 
 -- | Takes a non-negative path and "unparses" it, returning just a sequence of directions
 unparseNNPath :: NNPath x -> [Dir]
-unparseNNPath E = []
+unparseNNPath End = []
 unparseNNPath (U n) = Up : unparseNNPath n
 unparseNNPath (D n) = Dn : unparseNNPath n
 
@@ -162,14 +169,14 @@ instance MaybeD (S x) where
 instance MaybeD Z where
    maybeD = const Nothing
 
--- | By calling ensureHeight on an NNPath, it is possible to assert that a path has a particular height
-class EnsureHeight (x :: Nat) (h :: Nat) where
-   ensureHeight :: NNPath x -> Maybe (NNPath h)
-instance EnsureHeight Z Z where
-   ensureHeight = Just
-instance EnsureHeight n n => EnsureHeight (S n) (S n) where
-   ensureHeight = Just
-instance EnsureHeight n n => EnsureHeight n (S n) where
-   ensureHeight = const Nothing
-instance EnsureHeight n n => EnsureHeight (S n) n where
-   ensureHeight = const Nothing
+-- By calling ensureHeight on an NNPath, it is possible to assert that a path has a particular height
+--class EnsureHeight (x :: Nat) (h :: Nat) where
+--   ensureHeight :: NNPath x -> Maybe (NNPath h)
+--instance EnsureHeight Z Z where
+--   ensureHeight = Just
+--instance EnsureHeight n n => EnsureHeight (S n) (S n) where
+--   ensureHeight = Just
+--instance EnsureHeight n n => EnsureHeight n (S n) where
+--   ensureHeight = const Nothing
+--instance EnsureHeight n n => EnsureHeight (S n) n where
+--   ensureHeight = const Nothing
