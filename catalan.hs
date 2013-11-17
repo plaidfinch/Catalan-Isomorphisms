@@ -1,10 +1,10 @@
-{-# LANGUAGE GADTs , DataKinds , TypeFamilies , FlexibleInstances #-}
+{-# LANGUAGE GADTs , DataKinds , TypeFamilies , FlexibleInstances , LambdaCase #-}
 
 module Catalan where
 
 import Prelude hiding ( (-) )
 import Data.Semigroup
-import Data.Foldable ( foldMap )
+import Control.Applicative
 
 -- | Natural numbers...
 data Nat = Z | S Nat
@@ -38,7 +38,7 @@ instance Show (NNPath x) where
    --show End   = "End"
    --show (U n) = "(U " ++ show n ++ ")"
    --show (D n) = "(D " ++ show n ++ ")"
-   show = ("End" ++) . concatMap (\x -> case x of Up -> "-U"; Dn -> "-D") . reverse . unparseNNPath
+   show = (++ ")") . ("(End" ++) . concatMap (\case Up -> "-U"; Dn -> "-D") . unparseNNPath
 
 -- | A Dyck path is a non-negative path ending at zero
 type Dyck = NNPath Z
@@ -87,7 +87,7 @@ tack x [] = [x]
 tack x (y : rest) = y : tack x rest
 
 bump :: Dyck -> Dyck
-bump = D . (|+| U End)
+bump = D . (End - U |+|)
 
 -- | Typeclass for things countable by Catalan numbers
 -- | toDyck . fromDyck === id
@@ -105,34 +105,32 @@ children (Node cs) = cs
 instance Catalan Tree where
    toDyck (Node [])     = End
    toDyck (Node leaves) =
-      foldMap (bump . toDyck) (reverse leaves)
+      foldr (flip (|+|) . bump . toDyck) End (reverse leaves)
 
    fromDyck = fromNNPath
       where
          fromNNPath :: NNPath x -> Tree
-         fromNNPath End     = Node []
+         fromNNPath End   = Node []
          fromNNPath (U n) = zipU (fromNNPath n)
          fromNNPath (D n) = zipD (fromNNPath n)
 
-         zipU = Node . (: [])
-
-         zipD (Node []) = undefined -- can't zip down from a leaf; b/c we're using Dyck paths, this never occurs
+         zipU tree                  = [tree]
+         zipD (Node [])             = undefined -- can't zip down from a leaf; this never occurs w/ Dyck paths
          zipD (Node (Node gs : cs)) = Node (tack (Node cs) gs)
 
 -- | A direction is either up (Up) or down (Dn)
 data Dir = Up | Dn deriving ( Eq, Ord, Show )
 
 -- | Adds either 1 or -1 based on the direction given
-plusDir :: Enum a => a -> Dir -> a
-plusDir n Up = succ n
-plusDir n Dn = pred n
+plusDir :: Enum a => Dir -> a -> a
+plusDir Up = succ
+plusDir Dn = pred
 
 -- | Determines if a list of directions constitutes a Dyck path
 isDyckList :: [Dir] -> Bool
 isDyckList dirs =
-   (0     ==     foldl plusDir 0 rdirs) &&
-   (all (>= 0) $ scanl plusDir 0 rdirs)
-   where rdirs = reverse dirs
+   (0     ==     foldr plusDir 0 dirs) &&
+   (all (>= 0) $ scanr plusDir 0 (reverse dirs))
 
 -- | We can take a purely value-level, no-nonsense list of ordinary directions and (maybe) parse it into a Dyck path -- if and only if it represents a Dyck path. This uses the same tree-zipper technique used in implementing the fromDyck method of trees
 -- | Note that (for Dyck paths ONLY -- other inputs yield bottom):
@@ -140,34 +138,32 @@ isDyckList dirs =
 -- | fromJust . parseDyck . unparseNNPath === id
 parseDyck :: [Dir] -> Maybe Dyck
 parseDyck dirs =
-   if isDyckList dirs
-   then case treeFromDir dirs of
-      Nothing   -> Nothing
-      Just tree -> Just (toDyck tree)
-   else Nothing
+   if not (isDyckList dirs) then Nothing
+   else toDyck <$> treeFromDirs dirs
    where
-      treeFromDir []          = Just (Node [])
-      treeFromDir (Up : rest) = zipU =<< (treeFromDir rest)
-      treeFromDir (Dn : rest) = zipD =<< (treeFromDir rest)
+      treeFromDirs = foldr (=<<) (Just $ Node []) .
+         reverse . map (\case Up -> zipU; Dn -> zipD)
 
-      zipU = Just . Node . (: [])
-
+      zipU tree                  = Just $ Node [tree]
       zipD (Node [])             = Nothing
       zipD (Node (Node gs : cs)) = Just $ Node (tack (Node cs) gs)
 
 -- | Takes a non-negative path and "unparses" it, returning just a sequence of directions
 unparseNNPath :: NNPath x -> [Dir]
-unparseNNPath End = []
-unparseNNPath (U n) = Up : unparseNNPath n
-unparseNNPath (D n) = Dn : unparseNNPath n
+unparseNNPath = reverse . unparseNNPath'
+   where
+      unparseNNPath' :: NNPath x -> [Dir]
+      unparseNNPath' End = []
+      unparseNNPath' (U n) = Up : unparseNNPath' n
+      unparseNNPath' (D n) = Dn : unparseNNPath' n
 
 -- | We can safely try to prepend a D to an NNPath, returning nothing or a new NNPath
-class MaybeD x where
-   maybeD :: NNPath x -> Maybe (NNPath (Pred x))
-instance MaybeD (S x) where
-   maybeD = Just . D
-instance MaybeD Z where
-   maybeD = const Nothing
+--class MaybeD x where
+--   maybeD :: NNPath x -> Maybe (NNPath (Pred x))
+--instance MaybeD (S x) where
+--   maybeD = Just . D
+--instance MaybeD Z where
+--   maybeD = const Nothing
 
 -- By calling ensureHeight on an NNPath, it is possible to assert that a path has a particular height
 --class EnsureHeight (x :: Nat) (h :: Nat) where
