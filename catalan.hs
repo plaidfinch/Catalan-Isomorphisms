@@ -9,12 +9,10 @@ import Control.Applicative
 -- | Natural numbers...
 data Nat = Z | S Nat
 
+-- | Type family allowing us to add natural numbers at the type level
 type family Plus (m :: Nat) (n :: Nat) :: Nat
 type instance Plus Z n = n
 type instance Plus (S m) n = S (Plus m n)
-
-type family Pred (m :: Nat) :: Nat
-type instance Pred (S m) = m
 
 -- | NNPath (non-negative path) are paths consisting of up (U) and down (D) segments, which start at zero and never go below zero
 data NNPath (height :: Nat) where
@@ -22,6 +20,7 @@ data NNPath (height :: Nat) where
    U :: NNPath m -> NNPath (S m)
    D :: NNPath (S m) -> NNPath m
 
+-- | NNPaths are compared for equality lazily
 instance Eq (NNPath x) where
    U m == U n = m == n
    D m == D n = m == n
@@ -65,10 +64,13 @@ instance CutZ n => CutZ (S n) where
    cut (D x) = let (f,r) = cut x in (D f,r)
 
 -- | A Dyck path may be separated into a list of Dyck paths.
--- | This operation guarantees that each Dyck path in the resulting list will be a *prime* Dyck path (i.e. no zero-crossings other than start and end), but we don't yet have a way of meaningfully encoding this in the type system so that we can take advantage of it to type-safely implement an "unbump" operation for prime Dyck paths.
+-- This operation guarantees that each Dyck path in the resulting list will be a *prime* Dyck path (i.e. no zero-crossings other than start and end), but we don't yet have a way of meaningfully encoding this in the type system so that we can take advantage of it to type-safely implement an "unbump" operation for prime Dyck paths.
+
 -- | The following identities hold:
--- | foldr1 (|+|) . split === id
--- | split . foldr1 (|+|) === id
+--
+-- > foldr1 (|+|) . split === id
+--
+-- > split . foldr1 (|+|) === id
 split :: Dyck -> [Dyck]
 split End = []
 split n = reverse $ let (f,r) = splitFirst n in f : split r
@@ -77,21 +79,25 @@ split n = reverse $ let (f,r) = splitFirst n in f : split r
       splitFirst (D n) = let (f,r) = cut n in (D f,r)
 
 -- Alternatively, we can define split via the tree isomorphism:
--- split :: Dyck -> [Dyck]
--- split = map (bump . toDyck) . reverse . children . fromDyck
+-- > split :: Dyck -> [Dyck]
+-- > split = map (bump . toDyck) . reverse . children . fromDyck
 
 -- Some utilities...
 
+-- | Tack an element onto the end of a list
 tack :: x -> [x] -> [x]
 tack x [] = [x]
 tack x (y : rest) = y : tack x rest
 
+-- | Take a Dyck path and return it with an up before it and a down after it, thus bumping it upwards
 bump :: Dyck -> Dyck
-bump = D . (End - U |+|)
+bump = D . (End-U |+|)
 
 -- | Typeclass for things countable by Catalan numbers
--- | toDyck . fromDyck === id
--- | fromDyck . toDyck === id
+--
+-- > toDyck . fromDyck === id
+--
+-- > fromDyck . toDyck === id
 class Catalan a where
    toDyck   :: a -> Dyck
    fromDyck :: Dyck -> a
@@ -99,6 +105,7 @@ class Catalan a where
 -- | Trees with any number of child nodes can be counted by Catalan numbers
 data Tree = Node [Tree] deriving ( Eq, Show )
 
+-- | Returns the list of children for a tree
 children :: Tree -> [Tree]
 children (Node cs) = cs
 
@@ -134,9 +141,12 @@ isDyckList dirs =
    (all (>= 0) $ scanr plusDir 0 (reverse dirs))
 
 -- | We can take a purely value-level, no-nonsense list of ordinary directions and (maybe) parse it into a Dyck path -- if and only if it represents a Dyck path. This uses the same tree-zipper technique used in implementing the fromDyck method of trees
--- | Note that (for Dyck paths ONLY -- other inputs yield bottom):
--- | unparseNNPath . fromJust . parseDyck === id
--- | fromJust . parseDyck . unparseNNPath === id
+--
+-- Note that (for Dyck paths ONLY -- other inputs yield bottom):
+--
+-- > unparseNNPath . fromJust . parseDyck === id
+--
+-- > fromJust . parseDyck . unparseNNPath === id
 parseDyck :: [Dir] -> Maybe Dyck
 parseDyck dirs =
    if not (isDyckList dirs) then Nothing
@@ -149,7 +159,7 @@ parseDyck dirs =
       zipD (Node [])             = Nothing
       zipD (Node (Node gs : cs)) = Just $ Node (tack (Node cs) gs)
 
--- | Takes a non-negative path and "unparses" it, returning just a sequence of directions
+-- | Takes a non-negative path and unparses it, returning just a sequence of directions
 unparseNNPath :: NNPath x -> [Dir]
 unparseNNPath = reverse . unparseNNPath'
    where
