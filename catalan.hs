@@ -102,6 +102,7 @@ data Tree = Node [Tree] deriving ( Eq, Show )
 children :: Tree -> [Tree]
 children (Node cs) = cs
 
+-- | Trees are isomorphic to Dyck paths
 instance Catalan Tree where
    toDyck (Node [])     = End
    toDyck (Node leaves) =
