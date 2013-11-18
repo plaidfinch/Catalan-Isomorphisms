@@ -23,7 +23,7 @@ I also introduce the `(-)` operator. It allows one to construct paths more succi
 (-) :: NNPath x -> (NNPath x -> NNPath y) -> NNPath y
 ```
 
-With it, 
+With it, the same path is described as:
 
 ```Haskell
 End-U-D-U-U-D-U-D-U-U-U-D-D-D-D
@@ -55,4 +55,6 @@ For instance:
 End-U-U-D-D |+| End-U-D == End-U-U-D-D-U-D
 ```
 
-The parameter order of the `|+|` function is such that it makes visual sense when used with the `End-U-D` construction syntax; it feels backwards when used with the `D (U End)` constructor application syntax. This is the case for many of the operations in this module, and as such, the former is the preferred syntax for constructing non-negative paths.
+The parameter order of the `|+|` function is such that it makes visual sense when used with the `End-U-D` construction syntax; it feels backwards when used with the `D (U End)` constructor application syntax. This is the case for many of the operations in this module, and as such, the former is the preferred syntax for constructing non-negative paths. (Note that when destructuring a non-negative path, you are still doing this from "right" to "left".)
+
+
