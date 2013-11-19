@@ -37,7 +37,13 @@ If you don't like that the module exports an operator which occludes the normal 
 Non-negative paths are implemented in this module as a GADT which prevents the construction of paths violating the non-negativity constraint. As such, the following is a compile-time type error:
 
 ```Haskell
-End-U-D-D
+(D End)
+
+Couldn't match type 'Z with 'S m0
+    Expected type: NNPath ('S m0)
+      Actual type: NNPath 'Z
+    In the first argument of `D', namely `End'
+    In the expression: (D End)
 ```
 
 Concatenating Paths
