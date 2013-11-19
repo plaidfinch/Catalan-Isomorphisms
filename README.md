@@ -73,7 +73,8 @@ split :: Dyck -> [Dyck]
 ```
 
 ```Haskell
-split $ (End-U-D) |+| (End-U-U-D-U-D-D) == [(End-U-D),(End-U-U-D-U-D-D)]
+split $ (End-U-D) |+| (End-U-U-D-U-D-D)
+== [(End-U-D),(End-U-U-D-U-D-D)]
 ```
 
 > **Note**: It is the case that every resulting Dyck path from splitting will be *prime* — it will only touch zero at its start and end. This is not (yet) encoded in the types for Dyck paths in a meaningful way. Further work will be in the direction of doing this, so that we can define a type-safe operation to lower a prime Dyck path by one (removing its preceding and succeeding up and down segments). This will enable a more direct, transparent, and safe mapping from Dyck paths to trees.
