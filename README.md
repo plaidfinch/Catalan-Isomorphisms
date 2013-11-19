@@ -1,7 +1,7 @@
 Catalan Isomorphisms
 ====================
 
-Experiments with type-safe encoding and translation of various mathematical objects which are counted by the Catalan numbers, such as Dyck paths, ordered trees, binary trees, and others.
+Experiments with type-safe encoding and translation of various mathematical objects which are counted by the [Catalan numbers](http://en.wikipedia.org/wiki/Catalan_number), such as Dyck paths, ordered trees, binary trees, and others.
 
 Non-Negative and Dyck Paths
 ---------------------------
@@ -46,6 +46,21 @@ Couldn't match type 'Z with 'S m0
     In the expression: (D End)
 ```
 
+Isomorphisms!
+-------------
+
+Of course, the whole purpose of this module is to show isomorphisms between Catalan objects. For this purpose, there is the `Catalan` typeclass. Catalan objects should all have an isomorphism to Dyck paths — by defining `toDyck` and `fromDyck` methods, all Catalan objects can be mapped to each other, using Dyck paths as an intermediate representation.
+
+So far, I have only implemented an isomorphism between ordered trees and Dyck paths.
+
+```Haskell
+toDyck $ Node [Node [Node [],Node[]],Node[Node [Node [],Node []],Node []]]
+== (End-U-U-D-U-D-D-U-U-U-D-U-D-D-U-D-D)
+
+fromDyck (End-U-U-D-U-D-D-U-U-U-D-U-D-D-U-D-D) :: Tree
+== Node [Node [Node [],Node[]],Node[Node [Node [],Node []],Node []]]
+```
+
 Concatenating Paths
 -------------------
 
@@ -79,17 +94,25 @@ split $ (End-U-D) |+| (End-U-U-D-U-D-D)
 
 > **Note**: It is the case that every resulting Dyck path from splitting will be *prime* — it will only touch zero at its start and end. This is not (yet) encoded in the types for Dyck paths in a meaningful way. Further work will be in the direction of doing this, so that we can define a type-safe operation to lower a prime Dyck path by one (removing its preceding and succeeding up and down segments). This will enable a more direct, transparent, and safe mapping from Dyck paths to trees.
 
-Isomorphisms!
--------------
+Parsing and Unparsing Paths
+---------------------------
 
-Of course, the whole purpose of this module is to show isomorphisms between Catalan objects. For this purpose, there is the `Catalan` typeclass. Catalan objects should all have an isomorphism to Dyck paths — by defining `toDyck` and `fromDyck` methods, all Catalan objects can be mapped to each other, using Dyck paths as an intermediate representation.
-
-So far, I have only implemented an isomorphism between ordered trees and Dyck paths.
+You can also give a sequence of directions and have it parse into either `Just` a Dyck path or `Nothing`. Directions (`Dir`s) are lists of `Up` and `Dn`.
 
 ```Haskell
-toDyck $ Node [Node [Node [],Node[]],Node[Node [Node [],Node []],Node []]]
-== (End-U-U-D-U-D-D-U-U-U-D-U-D-D-U-D-D)
-
-fromDyck (End-U-U-D-U-D-D-U-U-U-D-U-D-D-U-D-D) :: Tree
-== Node [Node [Node [],Node[]],Node[Node [Node [],Node []],Node []]]
+parseDyck [Up,Up,Dn,Up,Dn,Dn] == Just (End-U-U-D-U-D-D)
+parseDyck [Up,Up,Dn,Dn,Dn]    == Nothing
 ```
+
+Parsing is only possible for Dyck paths, and not non-negative paths in general, due to limitatations of Haskell's type system (i.e. that it's not dependently typed). However, we can *un*parse any non-negative path:
+
+```Haskell
+unparseNNPath $ End-U-U-D-U-U-D-D == [Up,Up,Dn,Up,Up,Dn,Dn]
+```
+
+Future Work
+-----------
+
+Future work will be on adding more isomorphisms to the module, and enhancing the types used.
+
+I would like the definition of the function from Dyck paths to ordered trees to be structurally recursive on the constructed tree as well as on the given Dyck path (rather than using the poor man's Huet zipper as currently it does). This, however, requires the definition of an `unbump` operation (such that `unbump . bump === id`) which only works on *prime* Dyck paths. Encoding the prime-ness of a Dyck path in a meaningful way so as to allow the `unbump` operation to typecheck may or may not be possible in Haskell.
