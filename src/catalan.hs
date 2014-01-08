@@ -82,7 +82,7 @@ split :: Dyck -> [Dyck]
 split End = []
 split n = reverse $ let (f,r) = splitFirst n in f : split r
    where
-      splitFirst End     = (End,End)
+      splitFirst End   = (End,End)
       splitFirst (D n) = let (f,r) = cut n in (D f,r)
 
 -- Alternatively, we can define split via the tree isomorphism:
@@ -123,6 +123,10 @@ instance Catalan Tree where
       foldr (flip (|+|) . bump . toDyck) End (reverse leaves)
 
    fromDyck = fromNNPath
+      -- Translating a Dyck path to a tree uses the Dyck path as a chain of instructions to construct a tree.
+      -- U means construct an ancestor node (which will become a child node when we meet its corresponding D)
+      -- D means set the current root to its first child, putting itself as the last child.
+      -- This approach is inspired by Huet zippers.
       where
          fromNNPath :: NNPath x -> Tree
          fromNNPath End   = Node []
@@ -161,7 +165,7 @@ parseDyck dirs =
    where
       treeFromDirs = foldr (=<<) (Just $ Node []) .
          reverse . map (\case Up -> zipU; Dn -> zipD)
-
+      -- We use the same zipper approach here as in fromDyck for trees, but folding through a Maybe, as the parse can fail.
       zipU tree                  = Just $ Node [tree]
       zipD (Node [])             = Nothing
       zipD (Node (Node gs : cs)) = Just $ Node (tack (Node cs) gs)
